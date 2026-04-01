@@ -37,10 +37,12 @@ public class MainApp {
                     ResultSet rs_ = pstmt_.getGeneratedKeys();
                     if (rs_.next()) {
                         int userId = rs_.getInt(1);
-                        Wallet btcWallet = new BitcoinWallet(hashed);
+                        BitcoinWallet btcWallet = new BitcoinWallet(hashed);
                         String seedPhrase = btcWallet.getSeedPhrase();
-                        WalletRepository.saveWallet(userId, btcWallet, seedPhrase);
-
+                        byte[] encryptedPrivKeyBytes = btcWallet.getEncryptedBytes();
+                        byte[] encryptedPrivKeyIvector = btcWallet.getEncryptedIvector();
+                        WalletRepository.saveWallet(userId, btcWallet, seedPhrase, 
+                        encryptedPrivKeyBytes,encryptedPrivKeyIvector);
                         System.out.println("Registration successful!");
                         System.out.println("Seed phrase for account recovery: " + seedPhrase);
                     }
@@ -53,7 +55,6 @@ public class MainApp {
         } catch (SQLException e) {
             System.out.println("Error: " + e.getMessage());
         }
-
     }
 
     private static Integer loginCred(String email) {

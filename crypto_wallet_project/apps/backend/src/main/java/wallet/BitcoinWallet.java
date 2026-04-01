@@ -4,21 +4,25 @@ import java.util.List;
 
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
+
+import org.bitcoinj.crypto.HDPath;
+import org.bitcoinj.crypto.ChildNumber;
+import org.bitcoinj.crypto.EncryptedData;
+import org.bitcoinj.crypto.HDKeyDerivation;
+import org.bitcoinj.crypto.DeterministicKey;
+import org.bitcoinj.crypto.KeyCrypterScrypt;
+import org.bitcoinj.crypto.DeterministicHierarchy;
+
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bouncycastle.crypto.params.KeyParameter;
-import org.checkerframework.checker.units.qual.m;
-import org.bitcoinj.crypto.DeterministicKey;
-import org.bitcoinj.crypto.EncryptedData;
-import org.bitcoinj.crypto.KeyCrypterScrypt;
-import org.bitcoinj.crypto.HDKeyDerivation;
-import org.bitcoinj.crypto.ChildNumber;
-import org.bitcoinj.crypto.HDPath;
 
 public class BitcoinWallet implements Wallet {
 
     private final String seedPhrase;
     private final String address;
+    private final byte[] encryptedPrivKeyBytes;
+    private final byte[] encryptedPrivKeyIvector;
     private double balance = 0.0;
 
     public BitcoinWallet(String userPassword) {
@@ -37,16 +41,18 @@ public class BitcoinWallet implements Wallet {
         DeterministicKey masterKey = HDKeyDerivation.createMasterPrivateKey(seedBytes);
 
         ChildNumber childNumberPurpose = new ChildNumber(44, true);
-        ChildNumber childNumberCoinType = new ChildNumber(0);
-        ChildNumber childNumberAccount = new ChildNumber(0);
+        ChildNumber childNumberCoinType = new ChildNumber(0, true);
+        ChildNumber childNumberAccount = new ChildNumber(0,true);
         ChildNumber childNumberChange = new ChildNumber(0);
         ChildNumber childNumberAddIndex = new ChildNumber(0);
 
         HDPath privKeyPath = HDPath.m(List.of(childNumberPurpose, childNumberCoinType, childNumberAccount,
         childNumberChange, childNumberAddIndex));
 
-        // Derive a child key at path m/0 from the master key
-        DeterministicKey childKey = HDKeyDerivation.deriveChildKey(masterKey, new ChildNumber(0));
+        DeterministicHierarchy masterKeyTree = new DeterministicHierarchy(masterKey);
+        
+        // Derive a child key at path m/44'/0'/0'/0/0 BIP-44 from the master key
+        DeterministicKey childKey = masterKeyTree.get(privKeyPath, true, true);
 
         // From the child key's public key, we now derive a legacy P2PKH Bitcoin address
         this.address = LegacyAddress.fromKey(MainNetParams.get(), childKey).toString();
@@ -64,8 +70,9 @@ public class BitcoinWallet implements Wallet {
         ECKey encryptedKey = ecKey.encrypt(crypt, aesKey);
 
         EncryptedData encryptedPrivateKey = encryptedKey.getEncryptedPrivateKey();
-
-        System.out.println("Encrypted private key: " + encryptedPrivateKey);
+        
+        this.encryptedPrivKeyBytes = encryptedPrivateKey.encryptedBytes;
+        this.encryptedPrivKeyIvector = encryptedPrivateKey.initialisationVector;
     }
 
     public String getAddress() {
@@ -78,6 +85,14 @@ public class BitcoinWallet implements Wallet {
 
     public String getSeedPhrase() {
         return seedPhrase;
+    }
+
+    public byte[] getEncryptedBytes(){
+        return encryptedPrivKeyBytes;
+    }
+
+    public byte[] getEncryptedIvector(){
+        return encryptedPrivKeyIvector;
     }
 
     public double getBalance() {

@@ -31,6 +31,8 @@ public class DatabaseManager {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
                     seed_phrase TEXT NOT NULL,
+                    encrypted_private_bytes BLOB NOT NULL,
+                    encrypted_private_ivector BLOB NOT NULL,
                     currency TEXT NOT NULL,
                     address TEXT NOT NULL,
                     balance REAL DEFAULT 0,
