@@ -1,10 +1,14 @@
 package db;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.sql.Statement;
 import java.sql.Connection;
 import java.sql.DriverManager;
 
 public class DatabaseManager {
+    private static Logger logger = LogManager.getLogger(DatabaseManager.class);
     private static final String DB_URL = "jdbc:sqlite:crypto_wallet_db.db";
 
     public static Connection connect() {
@@ -38,9 +42,9 @@ public class DatabaseManager {
                     balance REAL DEFAULT 0,
                     FOREIGN KEY(user_id) REFERENCES users(id))
             """);
-            System.out.println("Database created successfully!");
+            logger.debug("Database created successfully!");
         } catch (Exception exc) {
-            System.out.println("Database init error: " + exc.getMessage());
+            logger.error("Database init error: " + exc.getMessage());
             exc.printStackTrace();
         }
     }

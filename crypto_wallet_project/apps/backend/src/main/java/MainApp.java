@@ -3,6 +3,10 @@ import java.sql.*;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.*;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.security.SecureRandom;
 import java.security.MessageDigest;
 import javax.crypto.spec.PBEKeySpec;
@@ -15,6 +19,7 @@ import wallet.BitcoinWallet;
 import wallet.MnemonicService;
 
 public class MainApp {
+    private static Logger logger = LogManager.getLogger(MainApp.class);
     private static void register(String email, char[] password) {
         String hashed = hashPassword(new String(password));
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
@@ -41,26 +46,26 @@ public class MainApp {
                         String seedPhrase = btcWallet.getSeedPhrase();
                         byte[] encryptedPrivKeyBytes = btcWallet.getEncryptedBytes();
                         byte[] encryptedPrivKeyIvector = btcWallet.getEncryptedIvector();
-                        WalletRepository.saveWallet(userId, btcWallet, seedPhrase, 
+                        WalletRepository.saveWallet(userId, btcWallet, seedPhrase,
                         encryptedPrivKeyBytes,encryptedPrivKeyIvector);
-                        System.out.println("Registration successful!");
-                        System.out.println("Seed phrase for account recovery: " + seedPhrase);
+                        logger.info("Registration successful!");
+                        logger.info("Seed phrase for account recovery: " + seedPhrase);
                     }
                 } catch (SQLException e) {
-                    System.out.println("Error: " + e.getMessage());
+                    logger.error("Error: " + e.getMessage());
                 }
             } else {
-                System.out.println("Email is already registered!");
+                logger.warn("Email is already registered!");
             }
         } catch (SQLException e) {
-            System.out.println("Error: " + e.getMessage());
+            logger.error("Error: " + e.getMessage());
         }
     }
 
     private static Integer loginCred(String email) {
         Console cnsl = System.console();
         if (cnsl == null) {
-            System.out.println("No console available");
+            logger.error("No console available");
         }
         try (Connection conn = DatabaseManager.connect();
                 PreparedStatement pstmt = conn
@@ -68,7 +73,7 @@ public class MainApp {
             pstmt.setString(1, email);
             ResultSet rs = pstmt.executeQuery();
             if (!rs.next()) {
-                System.out.println("Invalid user, either you entered wrong email or the user is not registered");
+                logger.warn("Invalid user, either you entered wrong email or the user is not registered");
                 return null;
             }
             int userId = rs.getInt("id");
@@ -76,23 +81,23 @@ public class MainApp {
                 char[] password = cnsl.readPassword("Password: ");
                 String storedHash = rs.getString("password_hash");
                 if (validatePassword(new String(password), storedHash)) {
-                    System.out.println("Login successful.");
+                    logger.info("Login successful.");
                     return userId;
                 } else {
-                    System.out.println("Invalid credentials. Attempt[" + attempt + "/3]");
+                    logger.warn("Invalid credentials. Attempt[" + attempt + "/3]");
                 }
             }
-            System.out.println("Exceeded number of password attempts...");
+            logger.warn("Exceeded number of password attempts...");
             return null;
         } catch (SQLException e) {
-            System.out.println("Error: " + e.getMessage());
+            logger.error("Error: " + e.getMessage());
             return null;
         }
     }
 
     private static Integer loginSeed(String seedPhrase) {
         if (!MnemonicService.validateMnemonic(seedPhrase)) {
-            System.out.println("Seed Phrase is not linked to any wallet");
+            logger.warn("Seed Phrase is not linked to any wallet");
             return null;
         }
         try (Connection conn = DatabaseManager.connect();
@@ -101,12 +106,12 @@ public class MainApp {
             ResultSet rs = pstmt.executeQuery();
             int userId = rs.getInt("user_id");
             if (rs.next()) {
-                System.out.println("Account successfully recovered!");
+                logger.info("Account successfully recovered!");
                 return userId;
             }
             return null;
         } catch (SQLException exc) {
-            System.out.println("Error detected: " + exc.getMessage());
+            logger.error("Error detected: " + exc.getMessage());
             return null;
         }
     }
@@ -136,7 +141,7 @@ public class MainApp {
 
             return MessageDigest.isEqual(hash, testHash);
         } catch (Exception e) {
-            System.out.println("Password validation error: " + e.getMessage());
+            logger.error("Password validation error: " + e.getMessage());
             return false;
         }
     }
@@ -147,19 +152,19 @@ public class MainApp {
                         .prepareStatement("SELECT currency, balance FROM wallets WHERE user_id = ?")) {
             pstmt.setString(1, userId);
             ResultSet rs = pstmt.executeQuery();
-            System.out.println("\n----- Wallet Balances -----");
+            logger.info("\n----- Wallet Balances -----");
             boolean foundWallet = false;
             if (rs.next()) {
                 foundWallet = true;
                 String currency = rs.getString("currency");
                 double balance = rs.getDouble("balance");
-                System.out.println(currency + ":" + balance);
+                logger.info(currency + ":" + balance);
             }
             if (!foundWallet) {
-                System.out.println("No wallets found");
+                logger.info("No wallets found");
             }
         } catch (SQLException e) {
-            System.out.println("Error: " + e.getMessage());
+            logger.error("Error: " + e.getMessage());
         }
     }
 
@@ -167,7 +172,7 @@ public class MainApp {
         DatabaseManager.init();
         Console cnsl = System.console();
         if (cnsl == null) {
-            System.out.println("No console available");
+            logger.error("No console available");
             return;
         }
         Scanner scanner = new Scanner(System.in);
@@ -206,16 +211,16 @@ public class MainApp {
                 if (userId != null) {
                     userWallet(String.valueOf(userId));
                 } else {
-                    System.out.println("Login failed!");
+                    logger.error("Login failed!");
                 }
             } else {
-                System.out.print("Seed Phrase: ");
+                logger.info("Seed Phrase: ");
                 String seedPhrase = scanner.nextLine().trim().toLowerCase();
                 Integer seedUserID = loginSeed(seedPhrase);
                 if (seedUserID != null) {
                     userWallet(String.valueOf(seedUserID));
                 } else {
-                    System.out.println("Failed to recover account!");
+                    logger.error("Failed to recover account!");
                 }
             }
         }
