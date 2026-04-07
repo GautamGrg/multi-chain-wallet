@@ -1,14 +1,14 @@
 package db;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.sql.Statement;
-import java.sql.Connection;
-import java.sql.DriverManager;
-
 public class DatabaseManager {
-    private static Logger logger = LogManager.getLogger(DatabaseManager.class);
+    private static final Logger logger = LogManager.getLogger(DatabaseManager.class);
     private static final String DB_URL = "jdbc:sqlite:crypto_wallet_db.db";
 
     public static Connection connect() {
@@ -45,7 +45,7 @@ public class DatabaseManager {
             logger.debug("Database created successfully!");
         } catch (Exception exc) {
             logger.error("Database init error: " + exc.getMessage());
-            exc.printStackTrace();
+            exc.printStackTrace(System.out);
         }
     }
 }

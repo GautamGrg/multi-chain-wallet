@@ -4,15 +4,13 @@ import java.util.List;
 
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
-
-import org.bitcoinj.crypto.HDPath;
 import org.bitcoinj.crypto.ChildNumber;
+import org.bitcoinj.crypto.DeterministicHierarchy;
+import org.bitcoinj.crypto.DeterministicKey;
 import org.bitcoinj.crypto.EncryptedData;
 import org.bitcoinj.crypto.HDKeyDerivation;
-import org.bitcoinj.crypto.DeterministicKey;
+import org.bitcoinj.crypto.HDPath;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
-import org.bitcoinj.crypto.DeterministicHierarchy;
-
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bouncycastle.crypto.params.KeyParameter;
@@ -23,7 +21,7 @@ public class BitcoinWallet implements Wallet {
     private final String address;
     private final byte[] encryptedPrivKeyBytes;
     private final byte[] encryptedPrivKeyIvector;
-    private double balance = 0.0;
+    private final double balance = 0.0;
 
     public BitcoinWallet(String userPassword) {
         // Using entropy of 32 random bytes, we use it to generate our seed phrase
@@ -75,26 +73,32 @@ public class BitcoinWallet implements Wallet {
         this.encryptedPrivKeyIvector = encryptedPrivateKey.initialisationVector;
     }
 
+    @Override
     public String getAddress() {
         return address;
     }
 
+    @Override
     public String getCurrency() {
         return "BTC";
     }
 
+    @Override
     public String getSeedPhrase() {
         return seedPhrase;
     }
 
+    @Override
     public byte[] getEncryptedBytes(){
         return encryptedPrivKeyBytes;
     }
 
+    @Override
     public byte[] getEncryptedIvector(){
         return encryptedPrivKeyIvector;
     }
 
+    @Override
     public double getBalance() {
         return balance;
     }
