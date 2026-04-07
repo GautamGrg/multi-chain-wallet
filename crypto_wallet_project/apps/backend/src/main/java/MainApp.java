@@ -4,8 +4,8 @@ import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.security.SecureRandom;
 import java.security.MessageDigest;
@@ -19,7 +19,8 @@ import wallet.BitcoinWallet;
 import wallet.MnemonicService;
 
 public class MainApp {
-    private static Logger logger = LogManager.getLogger(MainApp.class);
+    private static final Logger logger = LogManager.getLogger(MainApp.class);
+    
     private static void register(String email, char[] password) {
         String hashed = hashPassword(new String(password));
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
@@ -30,10 +31,9 @@ public class MainApp {
             pstmt.setString(1, email);
             ResultSet rs = pstmt.executeQuery();
             if (!rs.next()) {
-                try (Connection conn_ = DatabaseManager.connect();
-                        PreparedStatement pstmt_ = conn.prepareStatement(
-                                "INSERT INTO users(email, password_hash, created_date) VALUES (?, ?, ?)",
-                                Statement.RETURN_GENERATED_KEYS)) {
+                try (PreparedStatement pstmt_ = conn.prepareStatement(
+                        "INSERT INTO users(email, password_hash, created_date) VALUES (?, ?, ?)",
+                        Statement.RETURN_GENERATED_KEYS)) {
                     pstmt_.setString(1, email);
                     pstmt_.setString(2, hashed);
                     pstmt_.setString(3, sdf.format(date));
@@ -64,9 +64,6 @@ public class MainApp {
 
     private static Integer loginCred(String email) {
         Console cnsl = System.console();
-        if (cnsl == null) {
-            logger.error("No console available");
-        }
         try (Connection conn = DatabaseManager.connect();
                 PreparedStatement pstmt = conn
                         .prepareStatement("SELECT id, password_hash FROM users WHERE email = ?")) {
