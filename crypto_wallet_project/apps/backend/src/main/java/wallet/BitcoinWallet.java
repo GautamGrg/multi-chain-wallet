@@ -15,13 +15,20 @@ import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bouncycastle.crypto.params.KeyParameter;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 public class BitcoinWallet implements Wallet {
 
     private final String seedPhrase;
     private final String address;
+    private final byte [] pubKeyBytes;
     private final byte[] encryptedPrivKeyBytes;
     private final byte[] encryptedPrivKeyIvector;
+    private final String transactionSignKey;
     private final double balance = 0.0;
+
+    private static final Logger logger = LogManager.getLogger(BitcoinWallet.class);
 
     public BitcoinWallet(String userPassword) {
         // Using entropy of 32 random bytes, we use it to generate our seed phrase
@@ -57,7 +64,7 @@ public class BitcoinWallet implements Wallet {
 
         // Wrap the child private key in an ECKey to enable transaction signing
         ECKey ecKey = ECKey.fromPrivate(childKey.getPrivKey());
-
+ 
         // Declare our constructor to encrypt / decrypt the AESKey using random Salt
         KeyCrypterScrypt crypt = new KeyCrypterScrypt();
         // Using KeyCrypterScrypt constructor to encrypt / decrypt the AESKey derived
@@ -65,12 +72,15 @@ public class BitcoinWallet implements Wallet {
         KeyParameter aesKey = (crypt.deriveKey(userPassword));
 
         // Finally encrypt our private key
-        ECKey encryptedKey = ecKey.encrypt(crypt, aesKey);
-
-        EncryptedData encryptedPrivateKey = encryptedKey.getEncryptedPrivateKey();
+        ECKey encryptPrivKey = ecKey.encrypt(crypt, aesKey);
+        
+        EncryptedData encryptedPrivateKey = encryptPrivKey.getEncryptedPrivateKey();
         
         this.encryptedPrivKeyBytes = encryptedPrivateKey.encryptedBytes;
         this.encryptedPrivKeyIvector = encryptedPrivateKey.initialisationVector;
+
+        // Store the Public key from ECkey as well
+        this.pubKeyBytes = ecKey.getPubKey();
     }
 
     @Override

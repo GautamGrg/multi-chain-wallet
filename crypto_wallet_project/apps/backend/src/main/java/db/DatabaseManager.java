@@ -39,8 +39,18 @@ public class DatabaseManager {
                     encrypted_private_ivector BLOB NOT NULL,
                     currency TEXT NOT NULL,
                     address TEXT NOT NULL,
-                    balance REAL DEFAULT 0,
+                    balance REAL DEFAULT 0.0,
                     FOREIGN KEY(user_id) REFERENCES users(id))
+            """);
+            stm.execute("""
+                CREATE TABLE IF NOT EXISTS transactions(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    send_wallet_id INTEGER NOT NULL,
+                    receive_wallet_id INTEGER NOT NULL,
+                    transaction_amount REAL,
+                    currency TEXT NOT NULL,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )    
             """);
             logger.debug("Database created successfully!");
         } catch (Exception exc) {

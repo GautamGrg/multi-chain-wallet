@@ -165,6 +165,22 @@ public class MainApp {
         }
     }
 
+    private static void transactionSend(String pubAddress, double amount){
+        try(Connection conn = DatabaseManager.connect();
+            PreparedStatement pstmt = conn.prepareStatement("SELECT user_id, address, balance FROM wallets WHERE address = ?")){
+                pstmt.setString(1, pubAddress);
+            ResultSet rs = pstmt.executeQuery();
+            if (!rs.next()){
+                throw new java.lang.Error("Could not find receipt's wallet address");
+            }
+            int userId = rs.getInt("user_id");
+            double balance = rs.getDouble("balance");
+
+        } catch (SQLException exc){
+            logger.error("Error caused by: " + exc);
+        }
+    }
+
     public static void main(String[] args) {
         DatabaseManager.init();
         Console cnsl = System.console();
