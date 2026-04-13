@@ -10,9 +10,9 @@ import org.apache.logging.log4j.LogManager;
 public class WalletRepository {
     private static final Logger logger = LogManager.getLogger(WalletRepository.class);
     public static void saveWallet(int userId, BitcoinWallet btcWallet, String seedPhrase, 
-    byte[] encryptedPrivKeyBytes,byte[] encryptedPrivKeyIvector) {
+    byte[] encryptedPrivKeyBytes,byte[] encryptedPrivKeyIvector, byte[] pubKeyBytes) {
         String sql = """
-                    INSERT INTO wallets (user_id, seed_phrase, encrypted_private_bytes, encrypted_private_ivector, currency, address, balance)
+                    INSERT INTO wallets (user_id, seed_phrase, encrypted_private_key_bytes, encrypted_private_key_ivector, public_key_bytes, currency, address, balance)
                     VALUES (?,?,?,?,?,?,?)
                 """;
         try (Connection con = DatabaseManager.connect();
@@ -21,9 +21,10 @@ public class WalletRepository {
             ptm.setString(2, seedPhrase);
             ptm.setBytes(3, encryptedPrivKeyBytes);
             ptm.setBytes(4, encryptedPrivKeyIvector);
-            ptm.setString(5, btcWallet.getCurrency());
-            ptm.setString(6, btcWallet.getAddress());
-            ptm.setDouble(7, btcWallet.getBalance());
+            ptm.setBytes(5, pubKeyBytes);
+            ptm.setString(6, btcWallet.getCurrency());
+            ptm.setString(7, btcWallet.getAddress());
+            ptm.setDouble(8, btcWallet.getBalance());
             ptm.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error " + e.getMessage());

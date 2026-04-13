@@ -22,7 +22,7 @@ public class BitcoinWallet implements Wallet {
 
     private final String seedPhrase;
     private final String address;
-    private final byte [] pubKeyBytes;
+    private final byte[] pubKeyBytes;
     private final byte[] encryptedPrivKeyBytes;
     private final byte[] encryptedPrivKeyIvector;
     private final String transactionSignKey;
@@ -79,7 +79,7 @@ public class BitcoinWallet implements Wallet {
         this.encryptedPrivKeyBytes = encryptedPrivateKey.encryptedBytes;
         this.encryptedPrivKeyIvector = encryptedPrivateKey.initialisationVector;
 
-        // Store the Public key from ECkey as well
+        // Store the Public key in bytes reconstruct an encrypted ECKey later
         this.pubKeyBytes = ecKey.getPubKey();
     }
 
@@ -97,19 +97,22 @@ public class BitcoinWallet implements Wallet {
     public String getSeedPhrase() {
         return seedPhrase;
     }
-
-    @Override
-    public byte[] getEncryptedBytes(){
-        return encryptedPrivKeyBytes;
-    }
-
-    @Override
-    public byte[] getEncryptedIvector(){
-        return encryptedPrivKeyIvector;
-    }
-
+    
     @Override
     public double getBalance() {
         return balance;
     }
+    
+    public byte[] getEncryptedPrivKeyBytes(){
+        return encryptedPrivKeyBytes;
+    }
+
+    public byte[] getEncryptedPrivKeyIvector(){
+        return encryptedPrivKeyIvector;
+    }
+
+    public byte[] getPubKeyBytes(){
+        return pubKeyBytes;
+    }
+
 }
