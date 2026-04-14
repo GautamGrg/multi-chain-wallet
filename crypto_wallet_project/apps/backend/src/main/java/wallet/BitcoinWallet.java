@@ -1,8 +1,7 @@
+/* (C)2026 */
 package wallet;
 
 import java.util.List;
-
-import org.bitcoin.protocols.payments.Protos;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.crypto.ChildNumber;
@@ -45,15 +44,21 @@ public class BitcoinWallet implements Wallet {
 
         ChildNumber childNumberPurpose = new ChildNumber(44, true);
         ChildNumber childNumberCoinType = new ChildNumber(0, true);
-        ChildNumber childNumberAccount = new ChildNumber(0,true);
+        ChildNumber childNumberAccount = new ChildNumber(0, true);
         ChildNumber childNumberChange = new ChildNumber(0);
         ChildNumber childNumberAddIndex = new ChildNumber(0);
 
-        HDPath privKeyPath = HDPath.m(List.of(childNumberPurpose, childNumberCoinType, childNumberAccount,
-        childNumberChange, childNumberAddIndex));
+        HDPath privKeyPath =
+                HDPath.m(
+                        List.of(
+                                childNumberPurpose,
+                                childNumberCoinType,
+                                childNumberAccount,
+                                childNumberChange,
+                                childNumberAddIndex));
 
         DeterministicHierarchy masterKeyTree = new DeterministicHierarchy(masterKey);
-        
+
         // Derive a child key at path m/44'/0'/0'/0/0 BIP-44 from the master key
         DeterministicKey childKey = masterKeyTree.get(privKeyPath, true, true);
 
@@ -62,13 +67,13 @@ public class BitcoinWallet implements Wallet {
 
         // Wrap the child private key in an ECKey to enable transaction signing
         ECKey ecKey = ECKey.fromPrivate(childKey.getPrivKey());
- 
+
         // Declare our constructor to encrypt / decrypt the AESKey using random Salt
         KeyCrypterScrypt crypt = new KeyCrypterScrypt();
         ScryptParameters kcsParamters = crypt.getScryptParameters();
-        
+
         // Save the KeyCrypterScrypt parameters as bytes in the DB.
-        // This is so we re-use the same salt key for AESkey when we decrypt the private key 
+        // This is so we re-use the same salt key for AESkey when we decrypt the private key
         byte[] kcsParamBytes = kcsParamters.toByteArray();
         this.kcsParamBytes = kcsParamBytes;
 
@@ -78,9 +83,9 @@ public class BitcoinWallet implements Wallet {
 
         // Finally encrypt our private key
         ECKey encryptPrivKey = ecKey.encrypt(crypt, aesKey);
-        
+
         EncryptedData encryptedPrivateKey = encryptPrivKey.getEncryptedPrivateKey();
-        
+
         this.encryptedPrivKeyBytes = encryptedPrivateKey.encryptedBytes;
         this.encryptedPrivKeyIvector = encryptedPrivateKey.initialisationVector;
 
@@ -102,28 +107,29 @@ public class BitcoinWallet implements Wallet {
     public String getSeedPhrase() {
         return seedPhrase;
     }
-    
+
     @Override
     public double getBalance() {
         return balance;
     }
 
-    public byte[] getScryptParamBytes(){
+    @Override
+    public byte[] getScryptParamBytes() {
         return kcsParamBytes;
     }
-    
+
     @Override
-    public byte[] getEncryptedPrivKeyBytes(){
+    public byte[] getEncryptedPrivKeyBytes() {
         return encryptedPrivKeyBytes;
     }
 
     @Override
-    public byte[] getEncryptedPrivKeyIvector(){
+    public byte[] getEncryptedPrivKeyIvector() {
         return encryptedPrivKeyIvector;
     }
 
     @Override
-    public byte[] getPubKeyBytes(){
+    public byte[] getPubKeyBytes() {
         return pubKeyBytes;
     }
 }
