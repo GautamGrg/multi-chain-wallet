@@ -4,7 +4,8 @@ public interface Wallet {
     String getSeedPhrase();
     String getAddress();
     String getCurrency();
-    byte[] getEncryptedBytes();
-    byte[] getEncryptedIvector();
+    byte[] getEncryptedPrivKeyBytes();
+    byte[] getEncryptedPrivKeyIvector();
+    byte[] getPubKeyBytes();
     double getBalance();
 }

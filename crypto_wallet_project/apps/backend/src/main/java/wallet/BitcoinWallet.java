@@ -15,9 +15,6 @@ import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bouncycastle.crypto.params.KeyParameter;
 
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
-
 public class BitcoinWallet implements Wallet {
 
     private final String seedPhrase;
@@ -25,10 +22,8 @@ public class BitcoinWallet implements Wallet {
     private final byte[] pubKeyBytes;
     private final byte[] encryptedPrivKeyBytes;
     private final byte[] encryptedPrivKeyIvector;
-    private final String transactionSignKey;
+    // private final String transactionSignKey;
     private final double balance = 0.0;
-
-    private static final Logger logger = LogManager.getLogger(BitcoinWallet.class);
 
     public BitcoinWallet(String userPassword) {
         // Using entropy of 32 random bytes, we use it to generate our seed phrase

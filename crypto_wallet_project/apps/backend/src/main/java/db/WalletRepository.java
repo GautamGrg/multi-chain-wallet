@@ -13,10 +13,10 @@ public class WalletRepository {
     byte[] encryptedPrivKeyBytes,byte[] encryptedPrivKeyIvector, byte[] pubKeyBytes) {
         String sql = """
                     INSERT INTO wallets (user_id, seed_phrase, encrypted_private_key_bytes, encrypted_private_key_ivector, public_key_bytes, currency, address, balance)
-                    VALUES (?,?,?,?,?,?,?)
+                    VALUES (?,?,?,?,?,?,?,?)
                 """;
-        try (Connection con = DatabaseManager.connect();
-                PreparedStatement ptm = con.prepareStatement(sql)) {
+        try (Connection conn = DatabaseManager.connect();
+                PreparedStatement ptm = conn.prepareStatement(sql)) {
             ptm.setInt(1, userId);
             ptm.setString(2, seedPhrase);
             ptm.setBytes(3, encryptedPrivKeyBytes);

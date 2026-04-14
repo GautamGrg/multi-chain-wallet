@@ -52,7 +52,7 @@ public class MainApp {
                         String seedPhrase = btcWallet.getSeedPhrase();
                         byte[] encryptedPrivKeyBytes = btcWallet.getEncryptedPrivKeyBytes();
                         byte[] encryptedPrivKeyIvector = btcWallet.getEncryptedPrivKeyIvector();
-                        byte[] encryptedPubKeyBytes = btcWallet.getPubKeyBytes();
+                        byte[] getPubKeyBytes = btcWallet.getPubKeyBytes();
                         WalletRepository.saveWallet(userId, btcWallet, seedPhrase,
                         encryptedPrivKeyBytes,encryptedPrivKeyIvector, getPubKeyBytes);
                         logger.info("Registration successful!");
@@ -69,11 +69,9 @@ public class MainApp {
         }
     }
 
-    private static Integer loginCred(String email) {
-        Console cnsl = System.console();
+    private static Integer loginCred(String email, Scanner scanner) {
         try (Connection conn = DatabaseManager.connect();
-                PreparedStatement pstmt = conn
-                        .prepareStatement("SELECT id, password_hash FROM users WHERE email = ?")) {
+                PreparedStatement pstmt = conn.prepareStatement("SELECT id, password_hash FROM users WHERE email = ?")) {
             pstmt.setString(1, email);
             ResultSet rs = pstmt.executeQuery();
             if (!rs.next()) {
@@ -82,7 +80,8 @@ public class MainApp {
             }
             int userId = rs.getInt("id");
             for (int attempt = 1; attempt <= 3; attempt++) {
-                char[] password = cnsl.readPassword("Password: ");
+                System.out.print("Password: ");
+                char[] password = scanner.nextLine().toCharArray();
                 String storedHash = rs.getString("password_hash");
                 if (validatePassword(new String(password), storedHash)) {
                     logger.info("Login successful.");
@@ -152,8 +151,7 @@ public class MainApp {
 
     private static void userWallet(String userId) {
         try (Connection conn = DatabaseManager.connect();
-                PreparedStatement pstmt = conn
-                        .prepareStatement("SELECT currency, balance FROM wallets WHERE user_id = ?")) {
+                PreparedStatement pstmt = conn.prepareStatement("SELECT currency, balance FROM wallets WHERE user_id = ?")) {
             pstmt.setString(1, userId);
             ResultSet rs = pstmt.executeQuery();
             logger.info("\n----- Wallet Balances -----");
@@ -165,7 +163,7 @@ public class MainApp {
                 logger.info(currency + ":" + balance);
             }
             if (!foundWallet) {
-                logger.info("No wallets found");
+                logger.error("No wallets found");
             }
         } catch (SQLException e) {
             logger.error("Error: " + e.getMessage());
@@ -260,12 +258,13 @@ public class MainApp {
                     ======================================
                     """);
             System.out.println("1. Login using user credentials\n2. Recover account using Seed Phrase");
-            System.out.print("Enter your choice: ");
+            System.out.print("Enter your choice: ");\
             int loginChoice = Integer.parseInt(scanner.nextLine());
             if (loginChoice == 1) {
                 System.out.print("\nEmail: ");
                 String email = scanner.nextLine();
-                Integer userId = loginCred(email);
+                Integer userId = loginCred(email, scanner);
+                // scanner.nextLine(); // consume leftover newline from Console.readPassword
                 if (userId != null) {
                     System.out.println("""
                     \n======================================
@@ -273,15 +272,15 @@ public class MainApp {
                     ======================================
                     """);
                     System.out.println("1. Check account balance \n2. Send bitcoin");
-                    int menuOption = Integer.parseInt(scanner.nextLine());
                     System.out.print("Enter your choice: ");
+                    int menuOption = Integer.parseInt(scanner.nextLine());
                     if (menuOption == 1){
                         userWallet(String.valueOf(userId));
-                    }if (menuOption == 2){
-                        String recpientAddress = scanner.nextLine();
+                    }else if (menuOption == 2){
                         System.out.print("\nEnter the recipient's public address: ");
-                        int recpientAmount = Integer.parseInt(scanner.nextLine());
+                        String recpientAddress = scanner.nextLine();
                         System.out.print("\nEnter the amount you would like to send: ");
+                        int recpientAmount = Integer.parseInt(scanner.nextLine());
                         transactionSend(email, recpientAddress, recpientAmount);
                     }else{
                         logger.error("Please enter a vaild option");
