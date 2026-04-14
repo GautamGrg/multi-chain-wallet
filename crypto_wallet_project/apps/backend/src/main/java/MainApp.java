@@ -50,11 +50,12 @@ public class MainApp {
                         int userId = rs_.getInt(1);
                         BitcoinWallet btcWallet = new BitcoinWallet(hashed);
                         String seedPhrase = btcWallet.getSeedPhrase();
+                        byte[] kcsParamBytes = btcWallet.getScryptParamBytes();
                         byte[] encryptedPrivKeyBytes = btcWallet.getEncryptedPrivKeyBytes();
                         byte[] encryptedPrivKeyIvector = btcWallet.getEncryptedPrivKeyIvector();
-                        byte[] getPubKeyBytes = btcWallet.getPubKeyBytes();
-                        WalletRepository.saveWallet(userId, btcWallet, seedPhrase,
-                        encryptedPrivKeyBytes,encryptedPrivKeyIvector, getPubKeyBytes);
+                        byte[] PubKeyBytes = btcWallet.getPubKeyBytes();
+                        WalletRepository.saveWallet(userId, btcWallet, seedPhrase, kcsParamBytes,
+                        encryptedPrivKeyBytes,encryptedPrivKeyIvector, PubKeyBytes);
                         logger.info("Registration successful!");
                         logger.info("Seed phrase for account recovery: " + seedPhrase);
                     }
@@ -170,10 +171,10 @@ public class MainApp {
         }
     }
 
-    private static void transactionSend(String senderUserId, String pubAddress, double amount){
+    private static void transactionSend(int senderUserId, String pubAddress, double amount){
         try(Connection conn = DatabaseManager.connect();
-            PreparedStatement pstmt = conn.prepareStatement("SELECT encrypted_private_key_bytes, encrypted_private_key_ivector, public_key_bytes, balance FROM wallets WHERE address = ?")){
-                pstmt.setString(1, senderUserId);
+            PreparedStatement pstmt = conn.prepareStatement("SELECT encrypted_private_key_bytes, encrypted_private_key_ivector, public_key_bytes, balance FROM wallets WHERE user_id = ?")){
+                pstmt.setInt(1, senderUserId);
             ResultSet rs = pstmt.executeQuery();
             if (!rs.next()){
                 throw new java.lang.Error("An Error occured retrieving user details");
@@ -182,31 +183,31 @@ public class MainApp {
             byte[] encryptedPrivKeyIvector = rs.getBytes("encrypted_private_key_ivector");
             byte[] pubKeyBytes = rs.getBytes("public_key_bytes");
             double balance = rs.getDouble("balance");
-
-            try(PreparedStatement pstmtUser = conn.prepareStatement("SELECT password_hash FROM users WHERE id = ?")){
-                pstmtUser.setString(1, senderUserId);
-                ResultSet rsUser = pstmtUser.executeQuery();
-                if(rsUser.next()){
-                    String userPasswordHash = rsUser.getString("password_hash");
-                    KeyCrypterScrypt crypt = new KeyCrypterScrypt();
-                    // We derive the aesKey again to decrypt our encrypted private key for digital signing.
-                    // Un-sure if it creates a new aesKey with different salt
-                    KeyParameter aesKey = crypt.deriveKey(userPasswordHash);
-                    
-                    // Holder for encrypted values for private key bytes and private key I-vector
-                    // preparations for decrypting the private key
-                    EncryptedData encryptedData = new EncryptedData(encryptedPrivBytes, encryptedPrivKeyIvector);
-                    
-                    // The fromEncrypted method constructs a key using the private key 
-                    // components (private key bytes and initialisation vector). The returned
-                    // ECKey will be used for digital signing after decryption
-                    ECKey encryptedPrivKey = ECKey.fromEncrypted(encryptedData, crypt, pubKeyBytes);
-
-                    // Decrypt the private key using the KeyCrypter and AESkey dervied from 
-                    // the hashed password
-                    ECKey decryptedPrivKey = encryptedPrivKey.decrypt(crypt, aesKey);
-                }
+            
+            PreparedStatement pstmtUser = conn.prepareStatement("SELECT password_hash FROM users WHERE id = ?");
+            pstmtUser.setInt(1, senderUserId);
+            ResultSet rsUser = pstmtUser.executeQuery();
+            if(!rsUser.next()){
+                logger.error("User does not have a registered wallet");
             }
+            String userPasswordHash = rsUser.getString("password_hash");
+            
+            // We derive the aesKey again to decrypt our encrypted private key for digital signing.
+            // Un-sure if it creates a new aesKey with different salt
+            KeyCrypterScrypt crypt = new KeyCrypterScrypt();
+            KeyParameter aesKey = crypt.deriveKey(userPasswordHash);
+            
+            // Holder for encrypted values for private key bytes and private key I-vector
+            // preparations for decrypting the private key
+            EncryptedData encryptedData = new EncryptedData(encryptedPrivBytes, encryptedPrivKeyIvector);
+            
+            // The fromEncrypted method constructs a key using the private key 
+            // components (private key bytes and initialisation vector). The returned
+            // ECKey will be used for digital signing after decryption
+            ECKey encryptedPrivKey = ECKey.fromEncrypted(encryptedData, crypt, pubKeyBytes);
+            // Decrypt the private key using the KeyCrypter and AESkey dervied from 
+            // the hashed password    
+            ECKey decryptedPrivKey = encryptedPrivKey.decrypt(crypt, aesKey);
 
             if (balance >= amount){
                 // Proceed with the transaction. 
@@ -217,7 +218,6 @@ public class MainApp {
                         throw new java.lang.Error("Failed to locate user public address");
                     }
                 }
-
             }
         } catch (SQLException exc){
             logger.error("Error caused by: " + exc);
@@ -258,7 +258,7 @@ public class MainApp {
                     ======================================
                     """);
             System.out.println("1. Login using user credentials\n2. Recover account using Seed Phrase");
-            System.out.print("Enter your choice: ");\
+            System.out.print("Enter your choice: ");
             int loginChoice = Integer.parseInt(scanner.nextLine());
             if (loginChoice == 1) {
                 System.out.print("\nEmail: ");
@@ -281,7 +281,7 @@ public class MainApp {
                         String recpientAddress = scanner.nextLine();
                         System.out.print("\nEnter the amount you would like to send: ");
                         int recpientAmount = Integer.parseInt(scanner.nextLine());
-                        transactionSend(email, recpientAddress, recpientAmount);
+                        transactionSend(userId, recpientAddress, recpientAmount);
                     }else{
                         logger.error("Please enter a vaild option");
                     }

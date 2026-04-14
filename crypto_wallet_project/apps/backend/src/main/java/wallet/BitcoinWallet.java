@@ -2,6 +2,7 @@ package wallet;
 
 import java.util.List;
 
+import org.bitcoin.protocols.payments.Protos;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.crypto.ChildNumber;
@@ -13,6 +14,7 @@ import org.bitcoinj.crypto.HDPath;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.wallet.DeterministicSeed;
+import org.bitcoinj.wallet.Protos.ScryptParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 
 public class BitcoinWallet implements Wallet {
@@ -22,6 +24,7 @@ public class BitcoinWallet implements Wallet {
     private final byte[] pubKeyBytes;
     private final byte[] encryptedPrivKeyBytes;
     private final byte[] encryptedPrivKeyIvector;
+    private final byte[] kcsParamBytes;
     // private final String transactionSignKey;
     private final double balance = 0.0;
 
@@ -62,6 +65,13 @@ public class BitcoinWallet implements Wallet {
  
         // Declare our constructor to encrypt / decrypt the AESKey using random Salt
         KeyCrypterScrypt crypt = new KeyCrypterScrypt();
+        ScryptParameters kcsParamters = crypt.getScryptParameters();
+        
+        // Save the KeyCrypterScrypt parameters as bytes in the DB.
+        // This is so we re-use the same salt key for AESkey when we decrypt the private key 
+        byte[] kcsParamBytes = kcsParamters.toByteArray();
+        this.kcsParamBytes = kcsParamBytes;
+
         // Using KeyCrypterScrypt constructor to encrypt / decrypt the AESKey derived
         // from the user password
         KeyParameter aesKey = (crypt.deriveKey(userPassword));
@@ -97,17 +107,23 @@ public class BitcoinWallet implements Wallet {
     public double getBalance() {
         return balance;
     }
+
+    public byte[] getScryptParamBytes(){
+        return kcsParamBytes;
+    }
     
+    @Override
     public byte[] getEncryptedPrivKeyBytes(){
         return encryptedPrivKeyBytes;
     }
 
+    @Override
     public byte[] getEncryptedPrivKeyIvector(){
         return encryptedPrivKeyIvector;
     }
 
+    @Override
     public byte[] getPubKeyBytes(){
         return pubKeyBytes;
     }
-
 }

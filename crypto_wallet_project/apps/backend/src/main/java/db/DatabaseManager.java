@@ -35,6 +35,7 @@ public class DatabaseManager {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
                     seed_phrase TEXT NOT NULL,
+                    scrypt_param_bytes BLOB NOT NULL,
                     public_key_bytes BLOB NOT NULL,
                     encrypted_private_key_bytes BLOB NOT NULL,
                     encrypted_private_key_ivector BLOB NOT NULL,
