@@ -287,7 +287,11 @@ public class MainApp {
                         String recpientAddress = scanner.nextLine();
                         System.out.print("\nEnter the amount you would like to send: ");
                         int recpientAmount = Integer.parseInt(scanner.nextLine());
-                        transactionSend(userId, recpientAddress, recpientAmount);
+                        try{
+                            transactionSend(userId, recpientAddress, recpientAmount);
+                        } catch(InvalidProtocolBufferException exc){
+                            logger.error("The following error was raised due to: " + exc);
+                        }
                     }else{
                         logger.error("Please enter a vaild option");
                     }
