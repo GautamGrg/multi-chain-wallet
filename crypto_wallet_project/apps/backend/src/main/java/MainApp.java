@@ -16,7 +16,10 @@ import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.crypto.EncryptedData;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
+import org.bitcoinj.wallet.Protos.ScryptParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
+
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import db.DatabaseManager;
 import db.WalletRepository;
@@ -171,17 +174,18 @@ public class MainApp {
         }
     }
 
-    private static void transactionSend(int senderUserId, String pubAddress, double amount){
+    private static void transactionSend(int senderUserId, String pubAddress, double amount) throws InvalidProtocolBufferException{
         try(Connection conn = DatabaseManager.connect();
-            PreparedStatement pstmt = conn.prepareStatement("SELECT encrypted_private_key_bytes, encrypted_private_key_ivector, public_key_bytes, balance FROM wallets WHERE user_id = ?")){
+            PreparedStatement pstmt = conn.prepareStatement("SELECT scrypt_param_bytes, public_key_bytes, encrypted_private_key_bytes, encrypted_private_key_ivector, balance FROM wallets WHERE user_id = ?")){
                 pstmt.setInt(1, senderUserId);
             ResultSet rs = pstmt.executeQuery();
             if (!rs.next()){
                 throw new java.lang.Error("An Error occured retrieving user details");
             }
+            byte[] kcsParamBytes = rs.getBytes("scrypt_param_bytes");
+            byte[] pubKeyBytes = rs.getBytes("public_key_bytes");
             byte[] encryptedPrivBytes = rs.getBytes("encrypted_private_key_bytes");
             byte[] encryptedPrivKeyIvector = rs.getBytes("encrypted_private_key_ivector");
-            byte[] pubKeyBytes = rs.getBytes("public_key_bytes");
             double balance = rs.getDouble("balance");
             
             PreparedStatement pstmtUser = conn.prepareStatement("SELECT password_hash FROM users WHERE id = ?");
@@ -192,9 +196,11 @@ public class MainApp {
             }
             String userPasswordHash = rsUser.getString("password_hash");
             
-            // We derive the aesKey again to decrypt our encrypted private key for digital signing.
-            // Un-sure if it creates a new aesKey with different salt
-            KeyCrypterScrypt crypt = new KeyCrypterScrypt();
+            // We inherit the KeyCrypterScrypt parameters used previously to derive the AESKey 
+            // for encryption. So that it retains the same salt for the decryption process.
+            ScryptParameters kcsParameters = ScryptParameters.parseFrom(kcsParamBytes);
+            KeyCrypterScrypt crypt = new KeyCrypterScrypt(kcsParameters);
+            // Derieve the AESkey for decrypting the private key
             KeyParameter aesKey = crypt.deriveKey(userPasswordHash);
             
             // Holder for encrypted values for private key bytes and private key I-vector
