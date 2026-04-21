@@ -4,6 +4,9 @@ package wallet;
 import java.util.List;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
+import org.bitcoinj.core.SegwitAddress;
+
+
 import org.bitcoinj.crypto.ChildNumber;
 import org.bitcoinj.crypto.DeterministicHierarchy;
 import org.bitcoinj.crypto.DeterministicKey;
@@ -11,9 +14,13 @@ import org.bitcoinj.crypto.EncryptedData;
 import org.bitcoinj.crypto.HDKeyDerivation;
 import org.bitcoinj.crypto.HDPath;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
+
 import org.bitcoinj.params.MainNetParams;
+import org.bitcoinj.params.TestNet3Params;
+
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bitcoinj.wallet.Protos.ScryptParameters;
+
 import org.bouncycastle.crypto.params.KeyParameter;
 
 public class BitcoinWallet implements Wallet {
@@ -63,7 +70,7 @@ public class BitcoinWallet implements Wallet {
         DeterministicKey childKey = masterKeyTree.get(privKeyPath, true, true);
 
         // From the child key's public key, we now derive a legacy P2PKH Bitcoin address
-        this.address = LegacyAddress.fromKey(MainNetParams.get(), childKey).toString();
+        this.address = LegacyAddress.fromKey(TestNet3Params.get(), childKey).toString();
 
         // Wrap the child private key in an ECKey to enable transaction signing
         ECKey ecKey = ECKey.fromPrivate(childKey.getPrivKey());

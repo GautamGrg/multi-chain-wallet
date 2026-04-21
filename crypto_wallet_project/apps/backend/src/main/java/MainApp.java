@@ -1,4 +1,5 @@
 import java.io.*;
+import java.net.http.HttpResponse;
 import java.sql.*;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
@@ -13,22 +14,33 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.SecretKeyFactory;
 
 import org.bitcoinj.core.ECKey;
+import org.bitcoinj.core.Sha256Hash;
+import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Transaction;
+import org.bitcoinj.core.TransactionOutPoint;
 import org.bitcoinj.crypto.EncryptedData;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
+
+import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.wallet.Protos.ScryptParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
+import org.bouncycastle.util.encoders.Hex;
 
-import com.google.protobuf.InvalidProtocolBufferException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
-import db.DatabaseManager;
+import api.MempoolApi;
 import db.WalletRepository;
+import db.DatabaseManager;
 import wallet.Wallet;
 import wallet.BitcoinWallet;
 import wallet.MnemonicService;
 
+import com.google.protobuf.InvalidProtocolBufferException;
+
 public class MainApp {
     private static final Logger logger = LogManager.getLogger(MainApp.class);
+    public static ObjectMapper objectMapper = new ObjectMapper();
 
     private static void register(String email, char[] password) {
         String hashed = hashPassword(new String(password));
@@ -174,7 +186,7 @@ public class MainApp {
         }
     }
 
-    private static void transactionSend(int senderUserId, String pubAddress, double amount) throws InvalidProtocolBufferException{
+    private static void transactionSend(int senderUserId, String pubAddress) throws InvalidProtocolBufferException, IOException, InterruptedException{
         try(Connection conn = DatabaseManager.connect();
             PreparedStatement pstmt = conn.prepareStatement("SELECT scrypt_param_bytes, public_key_bytes, encrypted_private_key_bytes, encrypted_private_key_ivector, balance FROM wallets WHERE user_id = ?")){
                 pstmt.setInt(1, senderUserId);
@@ -215,22 +227,29 @@ public class MainApp {
             // the hashed password    
             ECKey decryptedPrivKey = encryptedPrivKey.decrypt(crypt, aesKey);
 
-            if (balance >= amount){
-                // Proceed with the transaction. 
-                try(PreparedStatement pstmtWallet = conn.prepareStatement("SELECT user_id, balance FROM wallet WHERE address = ?")){
-                    pstmtWallet.setString(1, pubAddress);
-                    ResultSet rsWallet = pstmtWallet.executeQuery();
-                    if (!rsWallet.next()){
-                        throw new java.lang.Error("Failed to locate user public address");
-                    }
-                }
+            NetworkParameters netParam = TestNet3Params.get();
+            Transaction tx = new Transaction(netParam);
+
+            Boolean addressIsValid = MempoolApi.getIsValid(pubAddress);
+            if (addressIsValid){
+                String getUtxoResp = MempoolApi.getUtxo(pubAddress);
+                JsonNode node = objectMapper.readTree(getUtxoResp).get(0);
+
+                String prevTxid = node.get("txid").asString();
+                long prevVout = node.get("vout").asLong();
+
+                logger.info("This is the previous tx id: " + prevTxid);
+                logger.info("This is the previous vout: " + prevVout);
+
+                Sha256Hash prevTxidHash = Sha256Hash.wrap(Hex.decode(prevTxid));
+                TransactionOutPoint txOutPoint = new TransactionOutPoint(netParam, prevVout, prevTxidHash);
             }
         } catch (SQLException exc){
             logger.error("Error caused by: " + exc);
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException, InterruptedException {
         DatabaseManager.init();
         Console cnsl = System.console();
         if (cnsl == null) {
@@ -285,10 +304,8 @@ public class MainApp {
                     }else if (menuOption == 2){
                         System.out.print("\nEnter the recipient's public address: ");
                         String recpientAddress = scanner.nextLine();
-                        System.out.print("\nEnter the amount you would like to send: ");
-                        int recpientAmount = Integer.parseInt(scanner.nextLine());
                         try{
-                            transactionSend(userId, recpientAddress, recpientAmount);
+                            transactionSend(userId, recpientAddress);
                         } catch(InvalidProtocolBufferException exc){
                             logger.error("The following error was raised due to: " + exc);
                         }
@@ -299,7 +316,7 @@ public class MainApp {
                     logger.error("Login failed!");
                 }
             } else {
-                logger.info("Seed Phrase: ");
+                System.out.print("Seed Phrase: ");
                 String seedPhrase = scanner.nextLine().trim().toLowerCase();
                 Integer seedUserID = loginSeed(seedPhrase);
                 if (seedUserID != null) {
