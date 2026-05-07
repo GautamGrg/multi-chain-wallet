@@ -12,11 +12,14 @@ import org.bitcoinj.crypto.HDKeyDerivation;
 import org.bitcoinj.crypto.HDPath;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
 import org.bitcoinj.params.TestNet3Params;
-import org.bitcoinj.wallet.DeterministicSeed;
+import org.bitcoinj.crypto.MnemonicCode;
 import org.bitcoinj.wallet.Protos.ScryptParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class BitcoinWallet implements Wallet {
+    private static final Logger logger = LogManager.getLogger(BitcoinWallet.class);
 
     private final String seedPhrase;
     private final String address;
@@ -28,16 +31,19 @@ public class BitcoinWallet implements Wallet {
 
     // private final String transactionSignKey;
 
-    public BitcoinWallet(String userPassword) {
+    public BitcoinWallet(String userPassword, String oldSeedPhrase) {
         // Using entropy of 32 random bytes, we use it to generate our seed phrase
         // consisting of 24 words
-        this.seedPhrase = MnemonicService.generateMnemonic();
+        if (oldSeedPhrase != null) {
+            this.seedPhrase = oldSeedPhrase;
+        } else {
+            this.seedPhrase = MnemonicService.generateMnemonic();
+        }
         List<String> words = List.of(seedPhrase.split(" "));
 
         // We now input our seed phrase into BIP-39's derivation algorithm
         // (PBKDF2-HMAC-SHA512) to get our 64-byte seed
-        DeterministicSeed seed = new DeterministicSeed(words, null, "", 0);
-        byte[] seedBytes = seed.getSeedBytes();
+        byte[] seedBytes = MnemonicCode.toSeed(words, "");
 
         // We obtain our master private key from the 64-byte seed using HMAC-SHA512
         // (BIP-32)
@@ -65,6 +71,7 @@ public class BitcoinWallet implements Wallet {
 
         // From the child key's public key, we now derive a legacy P2PKH Bitcoin address
         this.address = LegacyAddress.fromKey(TestNet3Params.get(), childKey).toString();
+        logger.info("The derived address: " + address);
 
         // Wrap the child private key in an ECKey to enable transaction signing
         ECKey ecKey = ECKey.fromPrivate(childKey.getPrivKey());

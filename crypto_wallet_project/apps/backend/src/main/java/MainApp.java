@@ -34,8 +34,7 @@ public class MainApp {
     private static final Logger logger = LogManager.getLogger(MainApp.class);
     public static ObjectMapper objectMapper = new ObjectMapper();
 
-    private static void register(String email, char[] password) {
-        String hashed = hashPassword(new String(password));
+    private static void register(String email, String hashPassword) {
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
         Date date = new Date(timestamp.getTime());
         SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy' 'HH:mm:ss");
@@ -51,27 +50,16 @@ public class MainApp {
                                         + " ?, ?)",
                                 Statement.RETURN_GENERATED_KEYS)) {
                     pstmt_.setString(1, email);
-                    pstmt_.setString(2, hashed);
+                    pstmt_.setString(2, hashPassword);
                     pstmt_.setString(3, sdf.format(date));
                     pstmt_.executeUpdate();
 
                     ResultSet rs_ = pstmt_.getGeneratedKeys();
                     if (rs_.next()) {
                         int userId = rs_.getInt(1);
-                        BitcoinWallet btcWallet = new BitcoinWallet(hashed);
+                        BitcoinWallet btcWallet = new BitcoinWallet(hashPassword, null);
                         String seedPhrase = btcWallet.getSeedPhrase();
-                        byte[] kcsParamBytes = btcWallet.getScryptParamBytes();
-                        byte[] encryptedPrivKeyBytes = btcWallet.getEncryptedPrivKeyBytes();
-                        byte[] encryptedPrivKeyIvector = btcWallet.getEncryptedPrivKeyIvector();
-                        byte[] PubKeyBytes = btcWallet.getPubKeyBytes();
-                        WalletRepository.saveWallet(
-                                userId,
-                                btcWallet,
-                                seedPhrase,
-                                kcsParamBytes,
-                                encryptedPrivKeyBytes,
-                                encryptedPrivKeyIvector,
-                                PubKeyBytes);
+                        WalletRepository.saveWallet(userId, btcWallet);
                         logger.info("Registration successful!");
                         logger.info("Seed phrase for account recovery: " + seedPhrase);
                     }
@@ -127,29 +115,6 @@ public class MainApp {
         }
     }
 
-    private static Integer loginSeed(String seedPhrase) {
-        if (!MnemonicService.validateMnemonic(seedPhrase)) {
-            logger.warn("Seed Phrase is not linked to any wallet");
-            return null;
-        }
-        try (Connection conn = DatabaseManager.connect();
-                PreparedStatement pstmt =
-                        conn.prepareStatement(
-                                "SELECT user_id FROM wallets WHERE seed_phrase = ?")) {
-            pstmt.setString(1, seedPhrase);
-            ResultSet rs = pstmt.executeQuery();
-            int userId = rs.getInt("user_id");
-            if (rs.next()) {
-                logger.info("Account successfully recovered!");
-                return userId;
-            }
-            return null;
-        } catch (SQLException exc) {
-            logger.error("Error detected: " + exc.getMessage());
-            return null;
-        }
-    }
-
     private static String hashPassword(String password) {
         try {
             byte[] salt = new byte[16];
@@ -179,6 +144,52 @@ public class MainApp {
         } catch (Exception e) {
             logger.error("Password validation error: " + e.getMessage());
             return false;
+        }
+    }
+
+    private static void recoverWallet(Scanner scanner, Console cnsl) {
+        boolean validSeedPhrase = false;
+        String seedPhrase = null;
+
+        for (int i = 0; i <= 3; i++) {
+            System.out.print("Please enter your wallet recovery Phrase: ");
+            String seedPhrasePrefix = scanner.nextLine().trim().toLowerCase();
+            if (!MnemonicService.validateMnemonic(seedPhrasePrefix)) {
+                logger.warn("Entered invalid Seed Phrase!");
+            } else {
+                seedPhrase = seedPhrasePrefix;
+                validSeedPhrase = true;
+                break;
+            }
+        }
+        if (!validSeedPhrase) {
+            throw new java.lang.Error("You have reached the number of attempts!");
+        }
+        char[] newPassword = cnsl.readPassword("Please enter your new password: ");
+        String hashed = hashPassword(new String(newPassword));
+        // Zero out the possible password, for security purposes
+        Arrays.fill(newPassword, '\0');
+
+        BitcoinWallet btcwallet = new BitcoinWallet(hashed, seedPhrase);
+        try (Connection conn = DatabaseManager.connect()) {
+            PreparedStatement pstmt = conn.prepareStatement(
+                    "UPDATE wallets SET scrypt_param_bytes"
+                            + " =?,encrypted_private_key_bytes =?,"
+                            + " encrypted_private_key_ivector=? WHERE address = ?");
+            pstmt.setBytes(1, btcwallet.getScryptParamBytes());
+            pstmt.setBytes(2, btcwallet.getEncryptedPrivKeyBytes());
+            pstmt.setBytes(3, btcwallet.getEncryptedPrivKeyIvector());
+            pstmt.setString(4, btcwallet.getAddress());
+            int updateRow = pstmt.executeUpdate();
+
+            if (updateRow == 0) {
+                logger.error("Failed to locate user Public address");
+            }else{
+                logger.info("Successfully updated row in the DB");
+            }
+
+        } catch (SQLException e) {
+            logger.error("Error: " + e.getMessage());
         }
     }
 
@@ -326,7 +337,10 @@ public class MainApp {
             System.out.print("Email: ");
             String email = scanner.nextLine().toLowerCase();
             char[] password = cnsl.readPassword("Password: ");
-            register(email, password);
+            String hashed = hashPassword(new String(password));
+            Arrays.fill(password, '\0');
+
+            register(email, hashed);
         } else {
             System.out.println(
                     """
@@ -371,14 +385,7 @@ public class MainApp {
                     logger.error("Login failed!");
                 }
             } else {
-                System.out.print("Seed Phrase: ");
-                String seedPhrase = scanner.nextLine().trim().toLowerCase();
-                Integer seedUserID = loginSeed(seedPhrase);
-                if (seedUserID != null) {
-                    userWallet(String.valueOf(seedUserID));
-                } else {
-                    logger.error("Failed to recover account!");
-                }
+                recoverWallet(scanner, cnsl);
             }
         }
         scanner.close();
