@@ -2,6 +2,8 @@
 package wallet;
 
 import java.util.List;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.crypto.ChildNumber;
@@ -11,12 +13,10 @@ import org.bitcoinj.crypto.EncryptedData;
 import org.bitcoinj.crypto.HDKeyDerivation;
 import org.bitcoinj.crypto.HDPath;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
-import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.crypto.MnemonicCode;
+import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.wallet.Protos.ScryptParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class BitcoinWallet implements Wallet {
     private static final Logger logger = LogManager.getLogger(BitcoinWallet.class);
@@ -71,7 +71,6 @@ public class BitcoinWallet implements Wallet {
 
         // From the child key's public key, we now derive a legacy P2PKH Bitcoin address
         this.address = LegacyAddress.fromKey(TestNet3Params.get(), childKey).toString();
-        logger.info("The derived address: " + address);
 
         // Wrap the child private key in an ECKey to enable transaction signing
         ECKey ecKey = ECKey.fromPrivate(childKey.getPrivKey());

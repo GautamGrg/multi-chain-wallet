@@ -172,22 +172,34 @@ public class MainApp {
 
         BitcoinWallet btcwallet = new BitcoinWallet(hashed, seedPhrase);
         try (Connection conn = DatabaseManager.connect()) {
-            PreparedStatement pstmt = conn.prepareStatement(
-                    "UPDATE wallets SET scrypt_param_bytes"
-                            + " =?,encrypted_private_key_bytes =?,"
-                            + " encrypted_private_key_ivector=? WHERE address = ?");
+            PreparedStatement pstmt =
+                    conn.prepareStatement(
+                            "UPDATE wallets SET scrypt_param_bytes"
+                                    + " =?,encrypted_private_key_bytes =?,"
+                                    + " encrypted_private_key_ivector=? WHERE address = ?");
             pstmt.setBytes(1, btcwallet.getScryptParamBytes());
             pstmt.setBytes(2, btcwallet.getEncryptedPrivKeyBytes());
             pstmt.setBytes(3, btcwallet.getEncryptedPrivKeyIvector());
             pstmt.setString(4, btcwallet.getAddress());
-            int updateRow = pstmt.executeUpdate();
+            int updateWallets = pstmt.executeUpdate();
 
-            if (updateRow == 0) {
+            if (updateWallets == 0) {
                 logger.error("Failed to locate user Public address");
-            }else{
-                logger.info("Successfully updated row in the DB");
-            }
+            } else {
+                PreparedStatement pstmt_ =
+                        conn.prepareStatement(
+                                "UPDATE users SET password_hash = ? WHERE id = (SELECT user_id FROM"
+                                        + " wallets WHERE address =?)");
+                pstmt_.setString(1, hashed);
+                pstmt_.setString(2, btcwallet.getAddress());
+                int updateUsers = pstmt_.executeUpdate();
 
+                if (updateUsers == 0) {
+                    logger.error("Failed to update password.");
+                } else {
+                    logger.info("Successfully recovered wallet!");
+                }
+            }
         } catch (SQLException e) {
             logger.error("Error: " + e.getMessage());
         }
