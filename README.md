@@ -1,1 +1,1 @@
-# CryptocurrencyWallet
+# Multi-chain wallet
