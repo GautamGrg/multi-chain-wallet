@@ -89,7 +89,6 @@ public class BitcoinWallet implements Wallet {
 
         // Finally encrypt our private key
         ECKey encryptPrivKey = ecKey.encrypt(crypt, aesKey);
-
         EncryptedData encryptedPrivateKey = encryptPrivKey.getEncryptedPrivateKey();
 
         this.encryptedPrivKeyBytes = encryptedPrivateKey.encryptedBytes;

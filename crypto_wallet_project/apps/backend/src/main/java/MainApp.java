@@ -25,6 +25,7 @@ import org.bitcoinj.core.TransactionOutPoint;
 import org.bitcoinj.crypto.EncryptedData;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
 import org.bitcoinj.params.TestNet3Params;
+import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.wallet.Protos.ScryptParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.util.encoders.Hex;
@@ -287,11 +288,10 @@ public class MainApp {
             KeyCrypterScrypt crypt = new KeyCrypterScrypt(kcsParameters);
             // Derieve the AESkey for decrypting the private key
             KeyParameter aesKey = crypt.deriveKey(userPasswordHash);
-
             // Holder for encrypted values for private key bytes and private key I-vector
             // preparations for decrypting the private key
             EncryptedData encryptedData =
-                    new EncryptedData(encryptedPrivBytes, encryptedPrivKeyIvector);
+                    new EncryptedData(encryptedPrivKeyIvector,encryptedPrivBytes);
 
             // The fromEncrypted method constructs a key using the private key
             // components (private key bytes and initialisation vector). The returned
@@ -299,7 +299,7 @@ public class MainApp {
             ECKey encryptedPrivKey = ECKey.fromEncrypted(encryptedData, crypt, pubKeyBytes);
             // Decrypt the private key using the KeyCrypter and AESkey dervied from
             // the hashed password
-            // ECKey decryptedPrivKey = encryptedPrivKey.decrypt(crypt, aesKey);
+            ECKey decryptedPrivKey = encryptedPrivKey.decrypt(crypt, aesKey);
 
             NetworkParameters netParam = TestNet3Params.get();
             Transaction tx = new Transaction(netParam);
@@ -355,17 +355,17 @@ public class MainApp {
                                                     new byte[] {},
                                                     txOutPoint,
                                                     Coin.valueOf(utxo.get("value").asLong())));
+                            TransactionInput txSignedInput = tx.addSignedInput(txOutPoint, ScriptBuilder.createOutputScript(recipeintAddressBytes), decryptedPrivKey);
                         } else {
                             break;
                         }
-                    }
+                    }   
                     if (userSatoshi < amountPlusFee) {
                         logger.error("Insufficient funds to send!");
                     }
                 }
                 // If the change output is less than dust threshold (P2PKH is ~ 546 sat/vB)
                 long satoshiChange = userSatoshi - amountInSatoshi - feeSatoshi;
-
                 if (satoshiChange > 546) {
                     tx.addOutput(Coin.valueOf(satoshiChange), senderAddressBytes);
                 } else {
