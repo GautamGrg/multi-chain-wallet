@@ -3,7 +3,6 @@ import api.MempoolApi;
 import com.google.protobuf.InvalidProtocolBufferException;
 import db.DatabaseManager;
 import db.WalletRepository;
-
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -15,15 +14,14 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.Address;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionInput;
 import org.bitcoinj.core.TransactionOutPoint;
-import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.crypto.EncryptedData;
 import org.bitcoinj.crypto.KeyCrypterScrypt;
 import org.bitcoinj.params.TestNet3Params;
@@ -310,52 +308,67 @@ public class MainApp {
             boolean addressIsValid = MempoolApi.getIsValid(recpientAddress);
             if (addressIsValid) {
                 // Convert transfer amount BTC to Satoshi Coin representation
-                long amountInSatoshi = (long)(amount * (long)Math.pow(10, 8));     
+                long amountInSatoshi = (long) (amount * (long) Math.pow(10, 8));
                 Coin coin = Coin.valueOf(amountInSatoshi);
-                
+
                 // Assume input size to be 1 and output as (recipient count + 1)
                 int input = 1;
                 int output = 2;
-                
+
                 Address senderAddressBytes = Address.fromString(netParam, senderAddress);
                 Address recipeintAddressBytes = Address.fromString(netParam, recpientAddress);
                 tx.addOutput(coin, recipeintAddressBytes);
 
-                // We calculate the intial / estimated fee using tx size * fastestFeeRate in sat/VByte
-                long feeSatoshi = ((long)(MempoolApi.getRecommFees()) * (10 + (input * 148) + (output  * 34)));
+                // We calculate the intial / estimated fee using tx size * fastestFeeRate in
+                // sat/VByte
+                long feeSatoshi =
+                        ((long) (MempoolApi.getRecommFees())
+                                * (10 + (input * 148) + (output * 34)));
                 long amountPlusFee = feeSatoshi + amountInSatoshi;
-                
+
                 long userSatoshi = 0;
                 JsonNode utxoNode = objectMapper.readTree(MempoolApi.getUtxo(senderAddress));
-                if (utxoNode.isArray()){
-                    for (JsonNode utxo: utxoNode){
-                        if (userSatoshi <= amountPlusFee){
+                if (utxoNode.isArray()) {
+                    for (JsonNode utxo : utxoNode) {
+                        if (userSatoshi <= amountPlusFee) {
                             userSatoshi += utxo.get("value").asLong();
-                            input ++;
-                            // Re-calculate estimated transaction fees and total amount required to sign transaction
-                            feeSatoshi = ((long)(MempoolApi.getRecommFees()) * (10 + (input * 148) + (output  * 34)));
+                            input++;
+                            // Re-calculate estimated transaction fees and total amount required to
+                            // sign transaction
+                            feeSatoshi =
+                                    ((long) (MempoolApi.getRecommFees())
+                                            * (10 + (input * 148) + (output * 34)));
                             amountPlusFee = feeSatoshi + amountInSatoshi;
-                            // Retrieve the previous transaction ID and vout value (transaction index)
+                            // Retrieve the previous transaction ID and vout value (transaction
+                            // index)
                             long prevVout = utxo.get("vout").asLong();
                             String prevTxid = utxo.get("txid").asString();
                             Sha256Hash prevTxidHash = Sha256Hash.wrap(Hex.decode(prevTxid));
                             // The transaction outpoint is used to reference a previous transaction
-                            TransactionOutPoint txOutPoint = new TransactionOutPoint(netParam, prevVout, prevTxidHash);
-                            TransactionInput txInput = tx.addInput(new TransactionInput(netParam, tx, new byte[]{}, txOutPoint, Coin.valueOf(utxo.get("value").asLong())));
-                            }else{
-                                break;
-                            }
-                        }
-                    if (userSatoshi < amountPlusFee){
-                        logger.error("Insufficient funds to send!");
+                            TransactionOutPoint txOutPoint =
+                                    new TransactionOutPoint(netParam, prevVout, prevTxidHash);
+                            TransactionInput txInput =
+                                    tx.addInput(
+                                            new TransactionInput(
+                                                    netParam,
+                                                    tx,
+                                                    new byte[] {},
+                                                    txOutPoint,
+                                                    Coin.valueOf(utxo.get("value").asLong())));
+                        } else {
+                            break;
                         }
                     }
+                    if (userSatoshi < amountPlusFee) {
+                        logger.error("Insufficient funds to send!");
+                    }
+                }
                 // If the change output is less than dust threshold (P2PKH is ~ 546 sat/vB)
                 long satoshiChange = userSatoshi - amountInSatoshi - feeSatoshi;
 
-                if (satoshiChange > 546){
+                if (satoshiChange > 546) {
                     tx.addOutput(Coin.valueOf(satoshiChange), senderAddressBytes);
-                }else{
+                } else {
                     feeSatoshi += satoshiChange;
                 }
             }
