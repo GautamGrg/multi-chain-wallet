@@ -60,4 +60,18 @@ public class MempoolApi {
 
         return getResponse.body();
     }
+
+    public static double getRecommFees()
+            throws IOException, InterruptedException { // Returns value in sat/vb
+        HttpRequest getFees =
+                HttpRequest.newBuilder()
+                        .uri(URI.create("https://mempool.space/testnet/api/v1/fees/precise"))
+                        .GET()
+                        .build();
+        HttpResponse<String> getResponse = client.send(getFees, BodyHandlers.ofString());
+        String fastestFee = getResponse.body();
+        JsonNode feeNode = objectMapper.readTree(fastestFee);
+
+        return feeNode.get("fastestFee").asDouble();
+    }
 }
